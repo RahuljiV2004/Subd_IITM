@@ -8,8 +8,8 @@ from utils.knockpy_runner import run_knockpy_and_enhance_streaming
 from nmap import run_single_nmap_scan
 app = Flask(__name__)
 CORS(app) 
-MXTOOLBOX_API_KEY = "abff5a1e-c212-4048-9095-6184c330bf5a"
-DNSDUMPSTER_API_KEY = "b9b1399a665b6fe4d62429fc43b4038435090c5f3659a74e747e831a9d902cf3"
+MXTOOLBOX_API_KEY = ""
+DNSDUMPSTER_API_KEY = ""
 
 client = MongoClient("mongodb://localhost:27017/")
 db = client["subdomain_db"]

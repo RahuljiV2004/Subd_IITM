@@ -34,7 +34,7 @@ export default function SubdomainDetails({ subdomain, onClose }: SubdomainDetail
   const mapContainer = useRef(null);
   const mapInstance = useRef(null);
 
-  mapboxgl.accessToken = 'pk.eyJ1IjoicmFodWwxMjM0amkiLCJhIjoiY20xdXFyOWloMDNxbTJqczdwMGYxbDRqeiJ9.vyf3dcUVhcM8a5R_K5VC-A';
+  mapboxgl.accessToken = '';
 
     
   useEffect(() => {

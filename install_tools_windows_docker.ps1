@@ -258,6 +258,38 @@ if (!(Test-Path $whatwebDir)) {
     Write-Log "WhatWeb already installed" "SUCCESS"
 }
 
+# Install Nikto
+Write-Log "Installing Nikto..."
+$niktoDir = "$toolsDir\nikto"
+if (!(Test-Path "$niktoDir\program\nikto.pl")) {
+    try {
+        if (Test-Path $niktoDir) { Remove-Item $niktoDir -Recurse -Force }
+        Set-Location $toolsDir
+        git clone https://github.com/sullo/nikto.git
+        Write-Log "Nikto installed successfully" "SUCCESS"
+    } catch {
+        Write-Log "Nikto installation failed: $($_.Exception.Message)" "ERROR"
+    }
+} else {
+    Write-Log "Nikto already installed" "SUCCESS"
+}
+
+# Install TestSSL
+Write-Log "Installing TestSSL..."
+$testsslDir = "$toolsDir\testssl.sh"
+if (!(Test-Path "$testsslDir\testssl.sh")) {
+    try {
+        if (Test-Path $testsslDir) { Remove-Item $testsslDir -Recurse -Force }
+        Set-Location $toolsDir
+        git clone --depth 1 https://github.com/drwetter/testssl.sh.git
+        Write-Log "TestSSL installed successfully" "SUCCESS"
+    } catch {
+        Write-Log "TestSSL installation failed: $($_.Exception.Message)" "ERROR"
+    }
+} else {
+    Write-Log "TestSSL already installed" "SUCCESS"
+}
+
 # Install Ruby gems
 Write-Log "Installing Ruby gems..."
 Refresh-Environment
@@ -279,7 +311,9 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
     $goTools = @(
         "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
         "github.com/projectdiscovery/dnsx/cmd/dnsx@latest",
-        "github.com/projectdiscovery/httpx/cmd/httpx@latest"
+        "github.com/projectdiscovery/httpx/cmd/httpx@latest",
+        "github.com/ffuf/ffuf@latest",
+        "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
     )
     
     foreach ($tool in $goTools) {
@@ -308,6 +342,32 @@ if (Get-Command go -ErrorAction SilentlyContinue) {
 } else {
     Write-Log "Go command not available" "WARN"
 }
+
+# Create WSL wrapper scripts for cross-platform compatibility
+Write-Log "Creating WSL wrapper scripts..."
+
+# Nikto wrapper
+$niktoWrapper = @"
+#!/bin/bash
+perl "/mnt/c/Users/$env:USERNAME/security-tools/nikto/program/nikto.pl" `$@
+"@
+$niktoWrapper | Out-File -FilePath "$projectToolsDir\nikto" -Encoding UTF8 -Force
+
+# TestSSL wrapper  
+$testsslWrapper = @"
+#!/bin/bash
+"/mnt/c/Users/$env:USERNAME/security-tools/testssl.sh/testssl.sh" `$@
+"@
+$testsslWrapper | Out-File -FilePath "$projectToolsDir\testssl" -Encoding UTF8 -Force
+
+# WhatWeb wrapper
+$whatwebWrapper = @"
+#!/bin/bash
+ruby "/mnt/c/Users/$env:USERNAME/security-tools/WhatWeb-master/whatweb" `$@
+"@
+$whatwebWrapper | Out-File -FilePath "$projectToolsDir\whatweb" -Encoding UTF8 -Force
+
+Write-Log "WSL wrapper scripts created" "SUCCESS"
 
 # Final verification
 Write-Log "Verifying installations..."

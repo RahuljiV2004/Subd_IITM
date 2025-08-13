@@ -1,0 +1,2 @@
+﻿#!/bin/bash
+"/mnt/c/Users/vedad/security-tools/testssl.sh/testssl.sh" $@

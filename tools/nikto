@@ -1,0 +1,2 @@
+﻿#!/bin/bash
+perl "/mnt/c/Users/vedad/security-tools/nikto/program/nikto.pl" $@

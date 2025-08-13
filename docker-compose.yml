@@ -1,6 +1,30 @@
-version: "3.8"
-
 services:
+  # Security Tools Setup Service (runs once to install tools)
+  security-tools-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: security-tools-setup
+    volumes:
+      - ./Backend:/app
+      - ./install_tools_wsl.sh:/app/install_tools_wsl.sh
+      - ./docker_install_automation.sh:/app/docker_install_automation.sh
+      - ./verify_setup.py:/app/verify_setup.py
+      - security-tools:/app/security-tools
+      - tool-binaries:/app/tools
+    environment:
+      - DOCKER_MODE=true
+      - SILENT=true
+      - PYTHONPATH=/app
+    command: >
+      bash -c "
+        echo 'Setting up security tools for containerized environment...' &&
+        chmod +x /app/docker_install_automation.sh &&
+        /app/docker_install_automation.sh wsl true &&
+        echo 'Security tools setup completed successfully'
+      "
+    restart: "no"
+
   backend:
     build:
       context: .
@@ -9,12 +33,19 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./backend:/app
+      - ./Backend:/app
+      - security-tools:/app/security-tools
+      - tool-binaries:/app/tools
     restart: unless-stopped
     depends_on:
       - mongo
+      - security-tools-setup
     environment:
       - MONGO_URI=mongodb://mongo:27017/
+      - USERNAME=vedad
+      - DOCKER_MODE=true
+      - PYTHONPATH=/app
+      - PATH=/app/tools:/app/security-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
   frontend:
     build:
@@ -35,6 +66,42 @@ services:
     volumes:
       - mongo-data:/data/db
     restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=subdomain_scanner
+
+  # Redis service for Celery task queue
+  redis:
+    image: redis:alpine
+    container_name: redis-queue
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # Celery worker service
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: celery-worker
+    volumes:
+      - ./Backend:/app
+      - security-tools:/app/security-tools
+      - tool-binaries:/app/tools
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - redis
+      - security-tools-setup
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/
+      - REDIS_URL=redis://redis:6379/0
+      - USERNAME=vedad
+      - DOCKER_MODE=true
+      - PYTHONPATH=/app
+      - PATH=/app/tools:/app/security-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    command: celery -A celery_worker.celery worker --loglevel=info
 
 volumes:
   mongo-data:
+  security-tools:
+  tool-binaries:

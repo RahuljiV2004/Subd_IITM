@@ -1,113 +1,3 @@
-# import socket
-# import ssl
-# from datetime import datetime
-# import requests
-# import json
-# import subprocess
-# import os
-
-
-# def enrich_subdomain_info(subdomain_data):
-#     return {
-#         "domain": subdomain_data.get("input") or subdomain_data.get("url"),
-#         "ip": subdomain_data.get("a", []),
-#         "http_status": subdomain_data.get("status_code"),
-#         "webserver": subdomain_data.get("webserver"),
-#         "tls": subdomain_data.get("tls"),
-#         "tech": subdomain_data.get("tech", []),
-#     }
-
-# def run_subfinder_and_enrich(domain):
-#     base_dir = os.path.dirname(__file__)
-#     tools_dir = os.path.join(base_dir, '..', 'tools')
-
-#     subfinder_path = os.path.join(tools_dir, 'subfinder.exe')
-#     dnsx_path = os.path.join(tools_dir, 'dnsx.exe')
-#     httpx_path = os.path.join(tools_dir, 'httpx.exe')
-
-#     sub_out = os.path.join(tools_dir, 'subfinder_output.txt')
-#     dnsx_out = os.path.join(tools_dir, 'dnsx_output.json')
-#     final_out = os.path.join(tools_dir, 'full_output.json')
-#     enriched_out = os.path.join(tools_dir, 'enriched_output.json')
-
-
-#     print(f"[INFO] Running subfinder for: {domain}")
-
-#     # --- Run subfinder ---
-#     with open(sub_out, 'w') as sf_out:
-#         subprocess.run([subfinder_path, "-d", domain, "-silent"], stdout=sf_out)
-
-#     print(f"[INFO] Running dnsx...")
-#     # --- Run dnsx ---
-#     with open(sub_out, 'r') as sf_in, open(dnsx_out, 'w') as dx_out:
-#         subprocess.run([dnsx_path, "-silent", "-json"], stdin=sf_in, stdout=dx_out)
-
-#     print(f"[INFO] Processing dnsx output and filtering hosts...")
-#     # --- Extract hosts and filter ---
-#     hosts = []
-#     with open(dnsx_out, 'r') as dx_in:
-#         for line in dx_in:
-#             if line.strip():
-#                 data = json.loads(line)
-#                 host = data.get("host")
-#                 if host:
-#                     hosts.append(host)
-
-#     # Filter only subdomains of the given domain
-#     filtered_hosts = []
-#     for host in hosts:
-#         if host.endswith(domain):
-#             filtered_hosts.append(host)
-#         else:
-#             print(f"[WARN] Ignored unrelated host: {host}")
-
-#     if not filtered_hosts:
-#         print(f"[WARN] No valid subdomains found for {domain}")
-#         return []
-
-#     print(f"[INFO] Running httpx on {len(filtered_hosts)} hosts...")
-
-#     # Write filtered hosts to httpx input
-#     httpx_input = os.path.join(tools_dir, 'httpx_input.txt')
-#     with open(httpx_input, 'w') as f:
-#         for h in filtered_hosts:
-#             f.write(h + '\n')
-
-#     # --- Run httpx ---
-#     with open(httpx_input, 'r') as hx_in, open(final_out, 'w') as fx_out:
-#         subprocess.run([httpx_path, "-silent", "-json", "-tls-probe"], stdin=hx_in, stdout=fx_out)
-
-#     print(f"[INFO] Enriching results...")
-#     # --- Enrich ---
-#     enriched_results = []
-
-#     try:
-#         with open(final_out, 'r') as f:
-#             for line in f:
-#                 if line.strip():
-#                     result = json.loads(line)
-#                     host_or_url = result.get('input') or result.get('url') or result.get('host')
-#                     print(f"[INFO] Enriching: {host_or_url}")
-
-#                     info = enrich_subdomain_info(result)  # <-- your custom enrich logic!
-#                     info.update(result)  # merge raw + normalized if needed
-#                     enriched_results.append(info)
-
-#     except Exception as e:
-#         print(f"[ERROR] Failed to read {final_out}: {e}")
-#         enriched_results.append({
-#             "error": f"Failed to read {final_out}: {str(e)}"
-#         })
-
-#     try:
-#         with open(enriched_out, 'w') as ef:
-#             json.dump(enriched_results, ef, indent=2)
-#         print(f"[INFO] Wrote enriched output to: {enriched_out}")
-
-#     except Exception as e:
-#         print(f"[ERROR] Failed to write {enriched_out}: {e}")
-
-#     return enriched_results
 import socket
 import ssl
 from datetime import datetime
@@ -132,17 +22,17 @@ def is_subdomain_of(host, domain):
     """Check if host is a subdomain of domain"""
     if not host or not domain:
         return False
-    
+
     # Remove protocol if present
-    if host.startswith(('http://', 'https://')):
-        host = host.split('://', 1)[1]
-    
+    if host.startswith(("http://", "https://")):
+        host = host.split("://", 1)[1]
+
     # Remove port if present
-    if ':' in host:
-        host = host.split(':')[0]
-    
+    if ":" in host:
+        host = host.split(":")[0]
+
     # Check if it's exactly the domain or a subdomain
-    return host == domain or host.endswith('.' + domain)
+    return host == domain or host.endswith("." + domain)
 
 
 def clean_temp_files(*file_paths):
@@ -158,17 +48,17 @@ def clean_temp_files(*file_paths):
 
 def run_subfinder_and_enrich(domain):
     base_dir = os.path.dirname(__file__)
-    tools_dir = os.path.join(base_dir, '..', 'tools')
+    tools_dir = os.path.join(base_dir, "..", "tools")
 
-    subfinder_path = os.path.join(tools_dir, 'subfinder.exe')
-    dnsx_path = os.path.join(tools_dir, 'dnsx.exe')
-    httpx_path = os.path.join(tools_dir, 'httpx.exe')
+    subfinder_path = os.path.join(tools_dir, "subfinder.exe")
+    dnsx_path = os.path.join(tools_dir, "dnsx.exe")
+    httpx_path = os.path.join(tools_dir, "httpx.exe")
 
-    sub_out = os.path.join(tools_dir, 'subfinder_output.txt')
-    dnsx_out = os.path.join(tools_dir, 'dnsx_output.json')
-    httpx_input = os.path.join(tools_dir, 'httpx_input.txt')
-    final_out = os.path.join(tools_dir, 'full_output.json')
-    enriched_out = os.path.join(tools_dir, 'enriched_output.json')
+    sub_out = os.path.join(tools_dir, "subfinder_output.txt")
+    dnsx_out = os.path.join(tools_dir, "dnsx_output.json")
+    httpx_input = os.path.join(tools_dir, "httpx_input.txt")
+    final_out = os.path.join(tools_dir, "full_output.json")
+    enriched_out = os.path.join(tools_dir, "enriched_output.json")
 
     # Clean up any existing temp files first
     clean_temp_files(sub_out, dnsx_out, httpx_input, final_out, enriched_out)
@@ -177,9 +67,13 @@ def run_subfinder_and_enrich(domain):
         print(f"[INFO] Running subfinder for: {domain}")
 
         # --- Run subfinder ---
-        with open(sub_out, 'w') as sf_out:
-            result = subprocess.run([subfinder_path, "-d", domain, "-silent"], 
-                                  stdout=sf_out, stderr=subprocess.PIPE, text=True)
+        with open(sub_out, "w") as sf_out:
+            result = subprocess.run(
+                [subfinder_path, "-d", domain, "-silent"],
+                stdout=sf_out,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
             if result.returncode != 0:
                 print(f"[ERROR] Subfinder failed: {result.stderr}")
                 return []
@@ -190,22 +84,27 @@ def run_subfinder_and_enrich(domain):
             return []
 
         print(f"[INFO] Running dnsx...")
-        
+
         # --- Run dnsx ---
-        with open(sub_out, 'r') as sf_in, open(dnsx_out, 'w') as dx_out:
-            result = subprocess.run([dnsx_path, "-silent", "-json"], 
-                                  stdin=sf_in, stdout=dx_out, stderr=subprocess.PIPE, text=True)
+        with open(sub_out, "r") as sf_in, open(dnsx_out, "w") as dx_out:
+            result = subprocess.run(
+                [dnsx_path, "-silent", "-json"],
+                stdin=sf_in,
+                stdout=dx_out,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
             if result.returncode != 0:
                 print(f"[ERROR] DNSx failed: {result.stderr}")
                 return []
 
         print(f"[INFO] Processing dnsx output and filtering hosts...")
-        
+
         # --- Extract and validate hosts ---
         filtered_hosts = []
-        
+
         if os.path.exists(dnsx_out):
-            with open(dnsx_out, 'r') as dx_in:
+            with open(dnsx_out, "r") as dx_in:
                 for line in dx_in:
                     line = line.strip()
                     if line:
@@ -218,43 +117,54 @@ def run_subfinder_and_enrich(domain):
                             elif host:
                                 print(f"[WARN] Ignored unrelated host: {host}")
                         except json.JSONDecodeError as e:
-                            print(f"[WARN] Failed to parse JSON line: {line[:100]}... Error: {e}")
+                            print(
+                                f"[WARN] Failed to parse JSON line: {line[:100]}... Error: {e}"
+                            )
 
         if not filtered_hosts:
             print(f"[WARN] No valid subdomains found for {domain}")
             return []
 
         print(f"[INFO] Found {len(filtered_hosts)} valid subdomains")
-        
+
         # Write filtered hosts to httpx input file
-        with open(httpx_input, 'w') as f:
+        with open(httpx_input, "w") as f:
             for host in filtered_hosts:
-                f.write(host + '\n')
+                f.write(host + "\n")
 
         print(f"[INFO] Running httpx on {len(filtered_hosts)} hosts...")
 
         # --- Run httpx ---
-        with open(httpx_input, 'r') as hx_in, open(final_out, 'w') as fx_out:
-            result = subprocess.run([httpx_path, "-silent", "-json", "-tls-probe"], 
-                                  stdin=hx_in, stdout=fx_out, stderr=subprocess.PIPE, text=True)
+        with open(httpx_input, "r") as hx_in, open(final_out, "w") as fx_out:
+            result = subprocess.run(
+                [httpx_path, "-silent", "-json", "-tls-probe"],
+                stdin=hx_in,
+                stdout=fx_out,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
             if result.returncode != 0:
                 print(f"[ERROR] HTTPx failed: {result.stderr}")
                 return []
 
         print(f"[INFO] Processing httpx results and filtering...")
-        
+
         # --- Process and filter httpx results ---
         enriched_results = []
-        
+
         if os.path.exists(final_out):
-            with open(final_out, 'r') as f:
+            with open(final_out, "r") as f:
                 for line in f:
                     line = line.strip()
                     if line:
                         try:
                             result = json.loads(line)
-                            host_or_url = result.get('input') or result.get('url') or result.get('host')
-                            
+                            host_or_url = (
+                                result.get("input")
+                                or result.get("url")
+                                or result.get("host")
+                            )
+
                             # Double-check that this result is for our target domain
                             if host_or_url and is_subdomain_of(host_or_url, domain):
                                 print(f"[INFO] Processing valid result: {host_or_url}")
@@ -262,16 +172,20 @@ def run_subfinder_and_enrich(domain):
                                 info.update(result)  # merge raw + normalized data
                                 enriched_results.append(info)
                             else:
-                                print(f"[WARN] Filtered out unrelated result: {host_or_url}")
-                                
+                                print(
+                                    f"[WARN] Filtered out unrelated result: {host_or_url}"
+                                )
+
                         except json.JSONDecodeError as e:
-                            print(f"[WARN] Failed to parse HTTPx JSON: {line[:100]}... Error: {e}")
+                            print(
+                                f"[WARN] Failed to parse HTTPx JSON: {line[:100]}... Error: {e}"
+                            )
 
         print(f"[INFO] Final results: {len(enriched_results)} valid subdomains")
 
         # Write enriched results
         if enriched_results:
-            with open(enriched_out, 'w') as ef:
+            with open(enriched_out, "w") as ef:
                 json.dump(enriched_results, ef, indent=2)
             print(f"[INFO] Wrote enriched output to: {enriched_out}")
         else:
@@ -282,7 +196,7 @@ def run_subfinder_and_enrich(domain):
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
         return []
-    
+
     finally:
         # Optional: Clean up temp files (comment out if you want to inspect them)
         # clean_temp_files(sub_out, dnsx_out, httpx_input, final_out)

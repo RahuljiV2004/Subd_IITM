@@ -1,21 +1,29 @@
-import ssl, socket, datetime, requests, json, subprocess, time, tempfile, os
+import ssl, socket, datetime, requests, json, subprocess, time, tempfile, os, sys
 from zapv2 import ZAPv2
 
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from config import get_tool_path
+
+
 def log(message, level="info"):
-    return json.dumps({
-        "type": "log",
-        "message": message,
-        "level": level,
-        "timestamp": datetime.datetime.utcnow().isoformat()
-    })
+    return json.dumps(
+        {
+            "type": "log",
+            "message": message,
+            "level": level,
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+        }
+    )
+
 
 def run_whatweb_scan(domain):
     try:
+        whatweb_path = get_tool_path("whatweb")
         result = subprocess.run(
-            ["ruby", r"C:\Users\rahul\WhatWeb-master\whatweb", "--log-json=-", domain],
+            ["ruby", whatweb_path, "--log-json=-", domain],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            check=True
+            check=True,
         )
         output = result.stdout.decode("utf-8").strip()
         lines = output.splitlines()
@@ -34,6 +42,7 @@ def run_whatweb_scan(domain):
     except Exception as e:
         return {"error": f"Exception: {str(e)}"}
 
+
 def get_full_certificate(domain):
     try:
         context = ssl.create_default_context()
@@ -41,15 +50,22 @@ def get_full_certificate(domain):
             with context.wrap_socket(sock, server_hostname=domain) as ssock:
                 cert = ssock.getpeercert()
                 return {
-                    "subject_common_name": next((t[0][1] for t in cert["subject"] if t[0][0] == "commonName"), None),
-                    "issuer_common_name": next((t[0][1] for t in cert["issuer"] if t[0][0] == "commonName"), None),
+                    "subject_common_name": next(
+                        (t[0][1] for t in cert["subject"] if t[0][0] == "commonName"),
+                        None,
+                    ),
+                    "issuer_common_name": next(
+                        (t[0][1] for t in cert["issuer"] if t[0][0] == "commonName"),
+                        None,
+                    ),
                     "valid_from": cert.get("notBefore"),
                     "valid_to": cert.get("notAfter"),
                     "serial_number": cert.get("serialNumber", None),
-                    "full_raw": cert
+                    "full_raw": cert,
                 }
     except Exception as e:
         return {"error": str(e)}
+
 
 def get_mxtoolbox_data(domain, api_key):
     try:
@@ -58,9 +74,14 @@ def get_mxtoolbox_data(domain, api_key):
         if response.status_code == 200:
             return response.json()
         else:
-            return {"error": True, "status": response.status_code, "message": response.text}
+            return {
+                "error": True,
+                "status": response.status_code,
+                "message": response.text,
+            }
     except Exception as e:
         return {"error": True, "message": str(e)}
+
 
 def get_http_statuses(subdomain):
     """
@@ -77,6 +98,7 @@ def get_http_statuses(subdomain):
             key = f"{scheme.replace('://', '')}_status"
             statuses[key] = None
     return statuses
+
 
 def get_http_status_full(subdomain):
     """
@@ -97,15 +119,13 @@ def get_http_status_full(subdomain):
         try:
             resp = requests.get(url, timeout=5, verify=False, allow_redirects=True)
             key = scheme.replace("://", "")
-            results[key] = [
-                resp.status_code,
-                resp.url,
-                resp.headers.get("Server")
-            ]
+            results[key] = [resp.status_code, resp.url, resp.headers.get("Server")]
         except Exception:
             key = scheme.replace("://", "")
             results[key] = [None, None, None]
     return results
+
+
 def get_ip_as_array(subdomain):
     """
     Returns IP address as an array: [IP] or [] if failed.
@@ -116,6 +136,7 @@ def get_ip_as_array(subdomain):
     except Exception:
         return []
 
+
 def get_dnsdumpster_data(domain, api_key):
     try:
         url = f"https://api.dnsdumpster.com/domain/{domain}"
@@ -124,9 +145,14 @@ def get_dnsdumpster_data(domain, api_key):
         if response.status_code == 200:
             return response.json()
         else:
-            return {"error": True, "status": response.status_code, "message": response.text}
+            return {
+                "error": True,
+                "status": response.status_code,
+                "message": response.text,
+            }
     except Exception as e:
         return {"error": True, "message": str(e)}
+
 
 def run_subfinder_scan(domain, subfinder_path="subfinder"):
     """
@@ -134,58 +160,70 @@ def run_subfinder_scan(domain, subfinder_path="subfinder"):
     """
     try:
         # Create temporary file for output
-        with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.txt') as sf_out:
+        with tempfile.NamedTemporaryFile(
+            mode="w+", delete=False, suffix=".txt"
+        ) as sf_out:
             temp_file_path = sf_out.name
-        
+
         # Run subfinder command
         result = subprocess.run(
-            [subfinder_path, "-d", domain, "-silent", "-o", temp_file_path], 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE, 
+            [subfinder_path, "-d", domain, "-silent", "-o", temp_file_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=300,  # 5 minute timeout
         )
-        
+
         # Read results from output file
         subdomains = []
         if os.path.exists(temp_file_path):
-            with open(temp_file_path, 'r') as f:
+            with open(temp_file_path, "r") as f:
                 for line in f:
                     subdomain = line.strip()
                     if subdomain:
-                        subdomains.append({
-                            "domain": subdomain,
-                            "found_by": "subfinder"
-                        })
-            
+                        subdomains.append(
+                            {"domain": subdomain, "found_by": "subfinder"}
+                        )
+
             # Clean up temp file
             os.unlink(temp_file_path)
-        
+
         if result.returncode != 0:
-            error_msg = result.stderr.strip() if result.stderr else "Unknown subfinder error"
+            error_msg = (
+                result.stderr.strip() if result.stderr else "Unknown subfinder error"
+            )
             return {"error": f"Subfinder error: {error_msg}"}
-        
+
         return subdomains
-        
+
     except subprocess.TimeoutExpired:
         return {"error": "Subfinder scan timed out after 5 minutes"}
     except FileNotFoundError:
-        return {"error": "Subfinder not found. Please ensure subfinder is installed and in PATH"}
+        return {
+            "error": "Subfinder not found. Please ensure subfinder is installed and in PATH"
+        }
     except Exception as e:
         return {"error": f"Exception running subfinder: {str(e)}"}
 
-def run_subfinder_and_enhance_streaming(domain, collection, mxtoolbox_api_key, dnsdumpster_api_key, subfinder_path="subfinder"):
+
+def run_subfinder_and_enhance_streaming(
+    domain,
+    collection,
+    mxtoolbox_api_key,
+    dnsdumpster_api_key,
+    subfinder_path="subfinder",
+):
     yield log(f"Starting Subfinder scan on: {domain}", level="info")
     print(f"🚀 Starting Subfinder scan on: {domain}")
 
     # Run subfinder scan
     subfinder_result = run_subfinder_scan(domain, subfinder_path)
-    
+
     if isinstance(subfinder_result, dict) and "error" in subfinder_result:
         yield log(f"❌ Subfinder failed: {subfinder_result['error']}", level="error")
         print(f"❌ Subfinder failed: {subfinder_result['error']}")
         return
-    
+
     results = subfinder_result
     yield log(f"✅ Subfinder completed. {len(results)} subdomains found.", level="info")
     print(f"✅ Subfinder completed. {len(results)} subdomains found.")
@@ -201,15 +239,18 @@ def run_subfinder_and_enhance_streaming(domain, collection, mxtoolbox_api_key, d
         return
 
     # ✅ Setup ZAP once
-    ZAP_ADDRESS = '127.0.0.1'
-    ZAP_PORT = '8080'
-    ZAP_API_KEY = 'vmkqcd8hdro5fc0cct2jv7vvr0'
+    ZAP_ADDRESS = "127.0.0.1"
+    ZAP_PORT = "8080"
+    ZAP_API_KEY = "vmkqcd8hdro5fc0cct2jv7vvr0"
 
     try:
-        zap = ZAPv2(apikey=ZAP_API_KEY, proxies={
-            'http': f'http://{ZAP_ADDRESS}:{ZAP_PORT}',
-            'https': f'http://{ZAP_ADDRESS}:{ZAP_PORT}'
-        })
+        zap = ZAPv2(
+            apikey=ZAP_API_KEY,
+            proxies={
+                "http": f"http://{ZAP_ADDRESS}:{ZAP_PORT}",
+                "https": f"http://{ZAP_ADDRESS}:{ZAP_PORT}",
+            },
+        )
         zap_version = zap.core.version
         print(f"[+] Connected to ZAP version: {zap_version}")
         yield log(f"Connected to ZAP version: {zap_version}", level="info")
@@ -222,9 +263,9 @@ def run_subfinder_and_enhance_streaming(domain, collection, mxtoolbox_api_key, d
     for idx, entry in enumerate(results):
         try:
             subdomain = entry.get("domain")
-            message = f"[{idx+1}/{len(results)}] ▶️ Processing: {subdomain}"
+            message = f"[{idx + 1}/{len(results)}] ▶️ Processing: {subdomain}"
             print(message)
-             # === IP ===
+            # === IP ===
             ip_data = get_ip_as_array(subdomain)
             # # ✅ HTTP & HTTPS status
             statuses = get_http_status_full(subdomain)
@@ -295,7 +336,9 @@ def run_subfinder_and_enhance_streaming(domain, collection, mxtoolbox_api_key, d
                     ascan_id = zap.ascan.scan(f"http://{subdomain}")
                     time.sleep(2)
                     while int(zap.ascan.status(ascan_id)) < 100:
-                        print(f"   ⚡ Active Scan progress: {zap.ascan.status(ascan_id)}%")
+                        print(
+                            f"   ⚡ Active Scan progress: {zap.ascan.status(ascan_id)}%"
+                        )
                         time.sleep(2)
                     print(f"   ✅ Active Scan done for: {subdomain}")
 
@@ -307,7 +350,9 @@ def run_subfinder_and_enhance_streaming(domain, collection, mxtoolbox_api_key, d
                     entry["zap_alerts"] = zap_alerts
 
                 except Exception as zap_scan_err:
-                    zap_err_msg = f"⚠️ ZAP scan failed for {subdomain}: {str(zap_scan_err)}"
+                    zap_err_msg = (
+                        f"⚠️ ZAP scan failed for {subdomain}: {str(zap_scan_err)}"
+                    )
                     print(f"   {zap_err_msg}")
                     yield log(zap_err_msg, level="warn")
             else:
@@ -317,16 +362,18 @@ def run_subfinder_and_enhance_streaming(domain, collection, mxtoolbox_api_key, d
             http_data = get_http_status_full(subdomain)
             # ✅ Add everything
             entry["cert_details"] = cert_data
-            entry["http"] = http_data["http"]   # [200] or []
-            entry["https"] = http_data["https"] # [403] or []
-            entry["ip"] = ip_data  
+            entry["http"] = http_data["http"]  # [200] or []
+            entry["https"] = http_data["https"]  # [403] or []
+            entry["ip"] = ip_data
             entry["mxtoolbox"] = mxtoolbox_data
             # entry["dnsdumpster"] = dnsdumpster_data
             # entry["whatweb"] = whatweb_data
             entry["scanned_at"] = datetime.datetime.utcnow().isoformat()
 
             # ✅ Store in MongoDB
-            res = collection.update_one({"domain": subdomain}, {"$set": entry}, upsert=True)
+            res = collection.update_one(
+                {"domain": subdomain}, {"$set": entry}, upsert=True
+            )
             if res.acknowledged:
                 mongo_msg = f"✅ MongoDB Updated: {subdomain}"
                 print(f"   {mongo_msg}")

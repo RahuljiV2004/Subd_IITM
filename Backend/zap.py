@@ -1,24 +1,29 @@
 import re
 import time
 from zapv2 import ZAPv2
+import os
 
 # -----------------------------------------------
-# ZAP CONFIG
-ZAP_ADDRESS = '127.0.0.1'
-ZAP_PORT = '8080'
-ZAP_API_KEY = 'vmkqcd8hdro5fc0cct2jv7vvr0'
+# ZAP CONFIG - Use environment variables or defaults
+ZAP_ADDRESS = os.getenv("ZAP_ADDRESS", "127.0.0.1")
+ZAP_PORT = os.getenv("ZAP_PORT", "8080")
+ZAP_API_KEY = os.getenv("ZAP_API_KEY", "vmkqcd8hdro5fc0cct2jv7vvr0")
 
 # -----------------------------------------------
 # Helpers
 
+
 def is_valid_domain(domain):
     return bool(re.match(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z]{2,})+$", domain))
+
 
 def is_valid_ip(ip):
     return bool(re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ip))
 
+
 # -----------------------------------------------
 # Run single ZAP scan for given subdomain
+
 
 def run_single_zap_scan(subdomain):
     """
@@ -33,9 +38,9 @@ def run_single_zap_scan(subdomain):
         zap = ZAPv2(
             apikey=ZAP_API_KEY,
             proxies={
-                'http': f'http://{ZAP_ADDRESS}:{ZAP_PORT}',
-                'https': f'http://{ZAP_ADDRESS}:{ZAP_PORT}'
-            }
+                "http": f"http://{ZAP_ADDRESS}:{ZAP_PORT}",
+                "https": f"http://{ZAP_ADDRESS}:{ZAP_PORT}",
+            },
         )
         zap_version = zap.core.version
     except Exception as conn_err:
@@ -69,11 +74,7 @@ def run_single_zap_scan(subdomain):
         # ✅ Get Alerts
         alerts = zap.core.alerts(baseurl=target_url)
 
-        return {
-            "target": subdomain,
-            "zap_version": zap_version,
-            "alerts": alerts
-        }
+        return {"target": subdomain, "zap_version": zap_version, "alerts": alerts}
 
     except Exception as scan_err:
         return {"error": f"ZAP scan failed: {str(scan_err)}"}

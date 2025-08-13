@@ -2,22 +2,61 @@
 
 FROM python:3.11-slim
 
-RUN apt update && apt install -y curl unzip git
+# Install basic dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    wget \
+    unzip \
+    git \
+    build-essential \
+    nmap \
+    dnsutils \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# (Optional: download subfinder or other tools here, or copy your local binaries if already in tools/)
-# Example:
-# RUN curl -LO https://github.com/projectdiscovery/subfinder/releases/latest/download/subfinder_linux_amd64.zip \
-#     && unzip subfinder_linux_amd64.zip -d /usr/local/bin \
-#     && chmod +x /usr/local/bin/subfinder_linux_amd64
+# Install Go (for subfinder, dnsx, httpx)
+RUN curl -LO https://go.dev/dl/go1.21.5.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz \
+    && rm go1.21.5.linux-amd64.tar.gz
+
+# Set Go environment
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/go"
+ENV GOROOT="/usr/local/go"
+
+# Create directories for tools
+RUN mkdir -p /app/tools /app/security-tools
 
 # Set working directory inside container
 WORKDIR /app
 
-# ✅ Fixed paths — copy contents of backend folder only
+# Copy requirements first for Docker layer caching
 COPY Backend/requirements.txt requirements.txt
-COPY Backend/ /app
-RUN pip uninstall -y bson
 
+# Copy Backend source code
+COPY Backend/ /app/
+
+# Copy installation scripts
+COPY install_tools_wsl.sh /app/install_tools_wsl.sh
+COPY docker_install_automation.sh /app/docker_install_automation.sh
+COPY verify_setup.py /app/verify_setup.py
+
+# Make scripts executable
+RUN chmod +x /app/install_tools_wsl.sh /app/docker_install_automation.sh
+
+# Install Python packages
+RUN pip uninstall -y bson || true
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Set environment variables
+ENV PYTHONPATH="/app"
+ENV PATH="/app/tools:/app/security-tools:/usr/local/go/bin:${PATH}"
+ENV USERNAME="vedad"
+ENV DOCKER_MODE="true"
+
+# Expose port
+EXPOSE 5000
+
+# Default command
 CMD ["python", "main.py"]

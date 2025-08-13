@@ -1,0 +1,13 @@
+# Ignore large binary tools - use install scripts instead
+*.exe
+nikto/
+testssl/
+nuclei
+ffuf
+httpx
+dnsx
+subfinder
+
+# Keep this gitignore and README
+!.gitignore
+!README.md

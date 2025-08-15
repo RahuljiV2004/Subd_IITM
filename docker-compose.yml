@@ -9,6 +9,7 @@ services:
       - ./Backend:/app
       - ./install_tools_wsl.sh:/app/install_tools_wsl.sh
       - ./docker_install_automation.sh:/app/docker_install_automation.sh
+      - ./install_security_tools.sh:/app/install_security_tools.sh
       - ./verify_setup.py:/app/verify_setup.py
       - security-tools:/app/security-tools
       - tool-binaries:/app/tools
@@ -19,8 +20,8 @@ services:
     command: >
       bash -c "
         echo 'Setting up security tools for containerized environment...' &&
-        chmod +x /app/docker_install_automation.sh &&
-        /app/docker_install_automation.sh wsl true &&
+        chmod +x /app/install_security_tools.sh &&
+        /app/install_security_tools.sh &&
         echo 'Security tools setup completed successfully'
       "
     restart: "no"
@@ -100,6 +101,32 @@ services:
       - PYTHONPATH=/app
       - PATH=/app/tools:/app/security-tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     command: celery -A celery_worker.celery worker --loglevel=info
+
+  # MCP Vulnerability Scanner Server (Optional - use --profile mcp to enable)
+  mcp-server:
+    build:
+      context: ./vulnerability-mcp-server
+      dockerfile: Dockerfile.mcp
+    container_name: mcp-vulnerability-scanner
+    ports:
+      - "${MCP_PORT:-8080}:8080"  # Configurable port
+    volumes:
+      - ./vulnerability-mcp-server/src:/app/src:ro  # Development mode
+      - security-tools:/opt/security-tools:ro
+      - tool-binaries:/usr/local/bin:ro
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - security-tools-setup
+    environment:
+      - FLASK_BACKEND_URL=http://backend:5000
+      - LOG_LEVEL=${MCP_LOG_LEVEL:-INFO}
+      - MAX_CONCURRENT_SCANS=${MCP_MAX_SCANS:-3}
+      - PYTHONPATH=/app/src:/app
+      - PATH=/usr/local/bin:/opt/security-tools:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+    profiles:
+      - mcp
+      - full
 
 volumes:
   mongo-data:

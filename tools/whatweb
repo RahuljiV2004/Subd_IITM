@@ -1,0 +1,2 @@
+﻿#!/bin/bash
+ruby "/mnt/c/Users/vedad/security-tools/WhatWeb-master/whatweb" $@

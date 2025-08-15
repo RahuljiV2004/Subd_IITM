@@ -40,10 +40,10 @@ COPY Backend/ /app/
 # Copy installation scripts
 COPY install_tools_wsl.sh /app/install_tools_wsl.sh
 COPY docker_install_automation.sh /app/docker_install_automation.sh
-COPY verify_setup.py /app/verify_setup.py
+COPY install_security_tools.sh /app/install_security_tools.sh
 
 # Make scripts executable
-RUN chmod +x /app/install_tools_wsl.sh /app/docker_install_automation.sh
+RUN chmod +x /app/install_tools_wsl.sh /app/docker_install_automation.sh /app/install_security_tools.sh
 
 # Install Python packages
 RUN pip uninstall -y bson || true

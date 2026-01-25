@@ -1,40 +1,69 @@
-version: "3.8"
-
+version: "3.9"
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    container_name: flask-backend
+  mongo:
+    image: mongo:6
+    container_name: mongo-container
     ports:
-      - "5000:5000"
+      - "27017:27017"
     volumes:
-      - ./backend:/app
-    restart: unless-stopped
-    depends_on:
-      - mongo
-    environment:
-      - MONGO_URI=mongodb://mongo:27017/
-
+      - mongo_data:/data/db
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: react-frontend
+    container_name: frontend-container
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       - backend
-    restart: unless-stopped
-
-  mongo:
-    image: mongo:latest
-    container_name: mongo-db
+      
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: backend-container
     ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    restart: unless-stopped
+      - "5000:5000"
+    depends_on:
+      - mongo
+      - zap
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/mydatabase
+      - ZAP_ADDRESS=zap
+      - ZAP_PORT=8085
+      - ZAP_API_KEY=vmkqcd8hdro5fc0cct2jv7vvr0
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: pass
+    depends_on:
+      - mongo
+
+
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: zap-container
+    ports:
+      - "8085:8085"  # ZAP API port
+      - "8090:8090"  # Optional Web UI
+    environment:
+      - DISPLAY=:0
+    command: >
+      zap.sh -daemon -host 0.0.0.0 -port 8085
+      -config api.disablekey=false
+      -config api.key=vmkqcd8hdro5fc0cct2jv7vvr0
+      -config api.addrs.addr.name=.* 
+      -config api.addrs.addr.regex=true
+
+
 
 volumes:
-  mongo-data:
+  mongo_data:
